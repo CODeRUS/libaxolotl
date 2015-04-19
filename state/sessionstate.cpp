@@ -146,7 +146,7 @@ ECKeyPair SessionState::getSenderRatchetKeyPair() const
 
 bool SessionState::hasReceiverChain(const DjbECPublicKey &senderEphemeral) const
 {
-    return getReceiverChain(senderEphemeral).second != -1;
+    return getReceiverChain(senderEphemeral) != -1;
 }
 
 bool SessionState::hasSenderChain() const
@@ -154,35 +154,40 @@ bool SessionState::hasSenderChain() const
     return sessionStructure.has_senderchain();
 }
 
-QPair<textsecure::SessionStructure::Chain, int> SessionState::getReceiverChain(const DjbECPublicKey &senderEphemeral) const
+int SessionState::getReceiverChain(const DjbECPublicKey &senderEphemeral) const
 {
+    QByteArray senderEphemeralSerialized = senderEphemeral.serialize();
     for (int i = 0; i < sessionStructure.receiverchains_size(); i++) {
         textsecure::SessionStructure::Chain receiverChain = sessionStructure.receiverchains(i);
         ::std::string senderratchetkey = receiverChain.senderratchetkey();
-        DjbECPublicKey chainSenderRatchetKey = Curve::decodePoint(QByteArray(senderratchetkey.data(), senderratchetkey.length()), 0);
-        if (chainSenderRatchetKey.serialize() == senderEphemeral.serialize()) {
-            QPair<textsecure::SessionStructure::Chain, int> receiverChainPair;
-            receiverChainPair.first = receiverChain;
-            receiverChainPair.second = i;
-            return receiverChainPair;
+        QByteArray senderratchetkeybytes(senderratchetkey.data(), senderratchetkey.length());
+        DjbECPublicKey chainSenderRatchetKey = Curve::decodePoint(senderratchetkeybytes, 0);
+        QByteArray chainSenderRatchetKeySerialized = chainSenderRatchetKey.serialize();
+        qDebug() << i << sessionStructure.receiverchains_size() << senderEphemeralSerialized.toHex() << chainSenderRatchetKeySerialized.toHex() << senderratchetkeybytes.size() << senderratchetkeybytes.toHex();
+        if (chainSenderRatchetKeySerialized == senderEphemeralSerialized) {
+            qDebug() << i;
+            return i;
+        }
+        else {
+
         }
     }
-    QPair<textsecure::SessionStructure::Chain, int> nullPair;
-    nullPair.second = -1;
-    return nullPair;
+    qDebug() << "HuXy9!";
+    return -1;
 }
 
 ChainKey SessionState::getReceiverChainKey(const DjbECPublicKey &senderEphemeral) const
 {
-    QPair<textsecure::SessionStructure::Chain, int> receiverChainAndIndex = getReceiverChain(senderEphemeral);
+    int receiverChainIndex = getReceiverChain(senderEphemeral);
 
-    if (receiverChainAndIndex.second == -1) {
+    if (receiverChainIndex == -1) {
         throw InvalidKeyException("ReceiverChain empty");
     } else {
-        ::std::string keyfromchain = receiverChainAndIndex.first.chainkey().key();
+        textsecure::SessionStructure::Chain receiverChain = sessionStructure.receiverchains(receiverChainIndex);
+        ::std::string keyfromchain = receiverChain.chainkey().key();
         return ChainKey(HKDF(getSessionVersion()),
                         QByteArray(keyfromchain.data(), keyfromchain.length()),
-                        receiverChainAndIndex.first.chainkey().index());
+                        receiverChain.chainkey().index());
     }
 }
 
@@ -256,14 +261,15 @@ void SessionState::setSenderChainKey(const ChainKey &nextChainKey)
 
 bool SessionState::hasMessageKeys(const DjbECPublicKey &senderEphemeral, uint counter) const
 {
-    QPair<textsecure::SessionStructure::Chain, int> chainAndIndex = getReceiverChain(senderEphemeral);
+    int chainIndex = getReceiverChain(senderEphemeral);
 
-    if (chainAndIndex.second == -1) {
+    if (chainIndex == -1) {
         return false;
     }
 
-    for (int i = 0; i < chainAndIndex.first.messagekeys_size(); i++) {
-        textsecure::SessionStructure::Chain::MessageKey messageKey = chainAndIndex.first.messagekeys(i);
+    textsecure::SessionStructure::Chain receiverChain = sessionStructure.receiverchains(chainIndex);
+    for (int i = 0; i < receiverChain.messagekeys_size(); i++) {
+        textsecure::SessionStructure::Chain::MessageKey messageKey = receiverChain.messagekeys(i);
         if (messageKey.index() == counter) {
             return true;
         }
@@ -274,15 +280,16 @@ bool SessionState::hasMessageKeys(const DjbECPublicKey &senderEphemeral, uint co
 
 MessageKeys SessionState::removeMessageKeys(const DjbECPublicKey &senderEphemeral, uint counter)
 {
-    QPair<textsecure::SessionStructure::Chain, int> chainAndIndex = getReceiverChain(senderEphemeral);
-    textsecure::SessionStructure::Chain                     chain = chainAndIndex.first;
+    int chainIndex = getReceiverChain(senderEphemeral);
 
-    if (chainAndIndex.second == -1) {
+    if (chainIndex == -1) {
         throw InvalidKeyException("ReceiverChain empty");
     }
 
+    textsecure::SessionStructure::Chain chain = sessionStructure.receiverchains(chainIndex);
     MessageKeys result;
 
+    qDebug() << "messagekeys_size before" << chain.messagekeys_size();
     for (int i = 0; i < chain.messagekeys_size(); i++) {
         textsecure::SessionStructure::Chain::MessageKey *messageKey = chain.mutable_messagekeys(i);
         if (messageKey->index() == counter) {
@@ -297,8 +304,9 @@ MessageKeys SessionState::removeMessageKeys(const DjbECPublicKey &senderEphemera
             break;
         }
     }
+    qDebug() << "messagekeys_size after" << chain.messagekeys_size();
 
-    textsecure::SessionStructure::Chain *updatedChain = sessionStructure.mutable_receiverchains(chainAndIndex.second);
+    textsecure::SessionStructure::Chain *updatedChain = sessionStructure.mutable_receiverchains(chainIndex);
     updatedChain->clear_messagekeys();
     updatedChain->CopyFrom(chain);
 
@@ -307,8 +315,8 @@ MessageKeys SessionState::removeMessageKeys(const DjbECPublicKey &senderEphemera
 
 void SessionState::setMessageKeys(const DjbECPublicKey &senderEphemeral, const MessageKeys &messageKeys)
 {
-    QPair<textsecure::SessionStructure::Chain, int> chainAndIndex = getReceiverChain(senderEphemeral);
-    textsecure::SessionStructure::Chain                    *chain = sessionStructure.mutable_receiverchains(chainAndIndex.second);
+    int chainIndex = getReceiverChain(senderEphemeral);
+    textsecure::SessionStructure::Chain *chain =  (chainIndex == -1) ? sessionStructure.add_receiverchains() : sessionStructure.mutable_receiverchains(chainIndex);
     textsecure::SessionStructure::Chain::MessageKey *messageKeyStructure = chain->add_messagekeys();
     QByteArray byteCipher = messageKeys.getCipherKey();
     messageKeyStructure->set_cipherkey(byteCipher.constData(), byteCipher.size());
@@ -321,8 +329,9 @@ void SessionState::setMessageKeys(const DjbECPublicKey &senderEphemeral, const M
 
 void SessionState::setReceiverChainKey(const DjbECPublicKey &senderEphemeral, const ChainKey &chainKey)
 {
-    QPair<textsecure::SessionStructure::Chain, int> chainAndIndex = getReceiverChain(senderEphemeral);
-    textsecure::SessionStructure::Chain                    *chain = sessionStructure.mutable_receiverchains(chainAndIndex.second);
+    int chainIndex = getReceiverChain(senderEphemeral);
+    textsecure::SessionStructure::Chain *chain =  (chainIndex == -1) ? sessionStructure.add_receiverchains() : sessionStructure.mutable_receiverchains(chainIndex);
+    //textsecure::SessionStructure::Chain *chain = sessionStructure.mutable_receiverchains(chainAndIndex.second);
 
     QByteArray serializedChainKey = chainKey.getKey();
 

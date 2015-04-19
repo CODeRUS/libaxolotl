@@ -112,7 +112,7 @@ QSharedPointer<CiphertextMessage> SessionCipher::encrypt(const QByteArray &padde
 QByteArray SessionCipher::decrypt(QSharedPointer<PreKeyWhisperMessage> ciphertext)
 {
     SessionRecord    *sessionRecord    = sessionStore->loadSession(recipientId, deviceId);
-    qulonglong             unsignedPreKeyId = sessionBuilder.process(sessionRecord, ciphertext);
+    qulonglong        unsignedPreKeyId = sessionBuilder.process(sessionRecord, ciphertext);
     QByteArray        plaintext        = decrypt(sessionRecord, ciphertext->getWhisperMessage());
 
     sessionStore->storeSession(recipientId, deviceId, sessionRecord);

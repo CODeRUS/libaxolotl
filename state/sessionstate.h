@@ -47,7 +47,7 @@ public:
     ECKeyPair getSenderRatchetKeyPair() const;
     bool hasReceiverChain(const DjbECPublicKey &senderEphemeral) const;
     bool hasSenderChain() const;
-    QPair<textsecure::SessionStructure::Chain,int> getReceiverChain(const DjbECPublicKey &senderEphemeral) const;
+    int getReceiverChain(const DjbECPublicKey &senderEphemeral) const;
     ChainKey getReceiverChainKey(const DjbECPublicKey &senderEphemeral) const;
     void addReceiverChain(const DjbECPublicKey &senderRatchetKey, const ChainKey &chainKey);
     void setSenderChain(const ECKeyPair &senderRatchetKeyPair, const ChainKey &chainKey);
