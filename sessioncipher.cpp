@@ -127,6 +127,7 @@ QByteArray SessionCipher::decrypt(QSharedPointer<PreKeyWhisperMessage> ciphertex
 QByteArray SessionCipher::decrypt(QSharedPointer<WhisperMessage> ciphertext)
 {
     if (!sessionStore->containsSession(recipientId, deviceId)) {
+        qDebug() << "No session for" << recipientId << deviceId;
         throw NoSessionException(QString("No session for: %1, %2").arg(recipientId).arg(deviceId));
     }
 
@@ -142,7 +143,7 @@ QByteArray SessionCipher::decrypt(SessionRecord *sessionRecord, QSharedPointer<W
 {
     QList<SessionState*> previousStatesList = sessionRecord->getPreviousSessionStates();
     QMutableListIterator<SessionState*> previousStates(previousStatesList);
-    QList<WhisperException>     exceptions;
+    QList<WhisperException> exceptions;
 
     try {
         SessionState *sessionState = sessionRecord->getSessionState();
@@ -211,6 +212,7 @@ int SessionCipher::getRemoteRegistrationId()
 int SessionCipher::getSessionVersion()
 {
     if (!sessionStore->containsSession(recipientId, deviceId)) {
+        qDebug() << "No session for" << recipientId << deviceId;
         throw NoSessionException(QString("No session for (%1, %2)!").arg(recipientId).arg(deviceId));
     }
 

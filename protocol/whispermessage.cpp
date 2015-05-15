@@ -32,7 +32,7 @@ WhisperMessage::WhisperMessage(const QByteArray &serialized)
         }
 
         textsecure::WhisperMessage whisperMessage;
-        whisperMessage.ParseFromArray(message.constData(), message.size());
+        whisperMessage.ParsePartialFromArray(message.constData(), message.size());
 
         if (!whisperMessage.has_ciphertext() ||
             !whisperMessage.has_counter() ||
@@ -46,7 +46,8 @@ WhisperMessage::WhisperMessage(const QByteArray &serialized)
 
         this->serialized       = serialized;
         ::std::string whisperratchetkey = whisperMessage.ratchetkey();
-        this->senderRatchetKey = Curve::decodePoint(QByteArray(whisperratchetkey.data(), whisperratchetkey.length()), 0);
+        QByteArray whisperratchetkeybytes(whisperratchetkey.data(), whisperratchetkey.length());
+        this->senderRatchetKey = Curve::decodePoint(whisperratchetkeybytes, 0);
         this->messageVersion   = ByteUtil::highBitsToInt(version);
         this->counter          = whisperMessage.counter();
         this->previousCounter  = whisperMessage.previouscounter();

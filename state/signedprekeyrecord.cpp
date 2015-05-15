@@ -15,7 +15,7 @@ SignedPreKeyRecord::SignedPreKeyRecord(qulonglong id, long timestamp, const ECKe
 
 SignedPreKeyRecord::SignedPreKeyRecord(const QByteArray &serialized)
 {
-    structure.ParseFromArray(serialized.constData(), serialized.size());
+    structure.ParsePartialFromArray(serialized.constData(), serialized.size());
 }
 
 qulonglong SignedPreKeyRecord::getId() const

@@ -1,7 +1,5 @@
 #include "sessionrecord.h"
 
-#include <QDebug>
-
 const int SessionRecord::ARCHIVED_STATES_MAX_LENGTH = 50;
 
 SessionRecord::SessionRecord()
@@ -19,7 +17,7 @@ SessionRecord::SessionRecord(SessionState *sessionState)
 SessionRecord::SessionRecord(const QByteArray &serialized)
 {
     textsecure::RecordStructure record;
-    record.ParseFromArray(serialized.constData(), serialized.size());
+    record.ParsePartialFromArray(serialized.constData(), serialized.size());
     sessionState = new SessionState(record.currentsession());
     fresh = false;
 

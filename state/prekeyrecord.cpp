@@ -12,7 +12,7 @@ PreKeyRecord::PreKeyRecord(qulonglong id, const ECKeyPair &keyPair)
 
 PreKeyRecord::PreKeyRecord(const QByteArray &serialized)
 {
-    structure.ParseFromArray(serialized.constData(), serialized.size());
+    structure.ParsePartialFromArray(serialized.constData(), serialized.size());
 }
 
 qulonglong PreKeyRecord::getId() const
