@@ -12,11 +12,14 @@ VERSION = 1.0.0
 INSTALLS += target
 
 CONFIG += dll link_pkgconfig
-PKGCONFIG += openssl libssl libcrypto protobuf
+PKGCONFIG += openssl libssl libcrypto
 #CONFIG += staticlib
 DEFINES += LIBAXOLOTL_LIBRARY
 
 LIBS += -L../libcurve25519 -lcurve25519
+LIBS += /usr/lib/libprotobuf.a
+QMAKE_CFLAGS += -fPIC -DPIC
+QMAKE_CXXFLAGS += -fPIC -DPIC
 
 HEADERS += \
     duplicatemessageexception.h \
