@@ -25,6 +25,8 @@ private:
 class SessionState
 {
 public:
+    static const int MAX_MESSAGE_KEYS = 2000;
+
     SessionState();
     SessionState(const textsecure::SessionStructure &sessionSctucture);
     SessionState(const SessionState &copy);

@@ -45,35 +45,34 @@ static void ctr128_inc_aligned(unsigned char *counter) {
     } while (n);
 }
 
-SessionCipher::SessionCipher(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore, QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore, qulonglong recipientId, int deviceId)
+SessionCipher::SessionCipher(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore, QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore, const AxolotlAddress &remoteAddress)
 {
-    init(sessionStore, preKeyStore, signedPreKeyStore, identityKeyStore, recipientId, deviceId);
+    init(sessionStore, preKeyStore, signedPreKeyStore, identityKeyStore, remoteAddress);
 }
 
-SessionCipher::SessionCipher(QSharedPointer<AxolotlStore> store, qulonglong recipientId, int deviceId)
+SessionCipher::SessionCipher(QSharedPointer<AxolotlStore> store, const AxolotlAddress &remoteAddress)
 {
     init(qSharedPointerCast<SessionStore>(store),
          qSharedPointerCast<PreKeyStore>(store),
          qSharedPointerCast<SignedPreKeyStore>(store),
          qSharedPointerCast<IdentityKeyStore>(store),
-         recipientId, deviceId);
+         remoteAddress);
 }
 
-void SessionCipher::init(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore, QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore, qulonglong recipientId, int deviceId)
+void SessionCipher::init(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore, QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore, const AxolotlAddress &remoteAddress)
 {
     this->sessionStore   = sessionStore;
-    this->recipientId    = recipientId;
-    this->deviceId       = deviceId;
+    this->remoteAddress  = remoteAddress;
     this->preKeyStore    = preKeyStore;
     this->sessionBuilder = SessionBuilder(sessionStore, preKeyStore, signedPreKeyStore,
-                                          identityKeyStore, recipientId, deviceId);
+                                          identityKeyStore, remoteAddress);
 }
 
 QSharedPointer<CiphertextMessage> SessionCipher::encrypt(const QByteArray &paddedMessage)
 {
     QSharedPointer<CiphertextMessage> result;
 
-    SessionRecord *sessionRecord   = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord *sessionRecord   = sessionStore->loadSession(remoteAddress);
     SessionState  *sessionState    = sessionRecord->getSessionState();
     ChainKey       chainKey        = sessionState->getSenderChainKey();
     MessageKeys    messageKeys     = chainKey.getMessageKeys();
@@ -104,18 +103,18 @@ QSharedPointer<CiphertextMessage> SessionCipher::encrypt(const QByteArray &padde
     }
 
     sessionState->setSenderChainKey(chainKey.getNextChainKey());
-    sessionStore->storeSession(recipientId, deviceId, sessionRecord);
+    sessionStore->storeSession(remoteAddress, sessionRecord);
 
     return result;
 }
 
 QByteArray SessionCipher::decrypt(QSharedPointer<PreKeyWhisperMessage> ciphertext)
 {
-    SessionRecord    *sessionRecord    = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord    *sessionRecord    = sessionStore->loadSession(remoteAddress);
     qulonglong        unsignedPreKeyId = sessionBuilder.process(sessionRecord, ciphertext);
     QByteArray        plaintext        = decrypt(sessionRecord, ciphertext->getWhisperMessage());
 
-    sessionStore->storeSession(recipientId, deviceId, sessionRecord);
+    sessionStore->storeSession(remoteAddress, sessionRecord);
 
     if (unsignedPreKeyId != -1) {
         preKeyStore->removePreKey(unsignedPreKeyId);
@@ -126,15 +125,15 @@ QByteArray SessionCipher::decrypt(QSharedPointer<PreKeyWhisperMessage> ciphertex
 
 QByteArray SessionCipher::decrypt(QSharedPointer<WhisperMessage> ciphertext)
 {
-    if (!sessionStore->containsSession(recipientId, deviceId)) {
-        qDebug() << "No session for" << recipientId << deviceId;
-        throw NoSessionException(QString("No session for: %1, %2").arg(recipientId).arg(deviceId));
+    if (!sessionStore->containsSession(remoteAddress)) {
+        qDebug() << "No session for" << remoteAddress.getName() << remoteAddress.getDeviceId();
+        throw NoSessionException(QString("No session for: %1, %2").arg(remoteAddress.getName()).arg(remoteAddress.getDeviceId()));
     }
 
-    SessionRecord *sessionRecord = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord *sessionRecord = sessionStore->loadSession(remoteAddress);
     QByteArray     plaintext     = decrypt(sessionRecord, ciphertext);
 
-    sessionStore->storeSession(recipientId, deviceId, sessionRecord);
+    sessionStore->storeSession(remoteAddress, sessionRecord);
 
     return plaintext;
 }
@@ -205,18 +204,18 @@ QByteArray SessionCipher::decrypt(SessionState *sessionState, QSharedPointer<Whi
 
 int SessionCipher::getRemoteRegistrationId()
 {
-    SessionRecord *record = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord *record = sessionStore->loadSession(remoteAddress);
     return record->getSessionState()->getRemoteRegistrationId();
 }
 
 int SessionCipher::getSessionVersion()
 {
-    if (!sessionStore->containsSession(recipientId, deviceId)) {
-        qDebug() << "No session for" << recipientId << deviceId;
-        throw NoSessionException(QString("No session for (%1, %2)!").arg(recipientId).arg(deviceId));
+    if (!sessionStore->containsSession(remoteAddress)) {
+        qDebug() << "No session for" << remoteAddress.getName() << remoteAddress.getDeviceId();
+        throw NoSessionException(QString("No session for (%1, %2)!").arg(remoteAddress.getName()).arg(remoteAddress.getDeviceId()));
     }
 
-    SessionRecord *record = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord *record = sessionStore->loadSession(remoteAddress);
     return record->getSessionState()->getSessionVersion();
 }
 

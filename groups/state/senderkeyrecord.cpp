@@ -11,29 +11,42 @@ SenderKeyRecord::SenderKeyRecord()
 
 SenderKeyRecord::SenderKeyRecord(const QByteArray &serialized)
 {
-
     textsecure::SenderKeyRecordStructure senderKeyRecordStructure;
     senderKeyRecordStructure.ParseFromArray(serialized.constData(), serialized.size());
 
     for (int i = 0; i < senderKeyRecordStructure.senderkeystates_size(); i++) {
         textsecure::SenderKeyStateStructure structure = senderKeyRecordStructure.senderkeystates(i);
-        SenderKeyState *state = new SenderKeyState(structure);
-        senderKeyStates.append(state);
+        senderKeyStates.append(new SenderKeyState(structure));
     }
+}
+
+SenderKeyState *SenderKeyRecord::getSenderKeyState()
+{
+    if (!senderKeyStates.isEmpty()) {
+        return senderKeyStates.first();
+    }
+
+    throw InvalidKeyIdException(QString("No key state in record!"));
 }
 
 SenderKeyState *SenderKeyRecord::getSenderKeyState(int keyId)
 {
-    if (!senderKeyStates.isEmpty() && (keyId < senderKeyStates.size())) {
-        return senderKeyStates.at(keyId);
-    } else {
-        throw InvalidKeyIdException(QString("No key state %1 in record!").arg(keyId));
+    foreach (SenderKeyState *state, senderKeyStates) {
+        if (state->getKeyId() == keyId) {
+            return state;
+        }
     }
+
+    throw InvalidKeyIdException(QString("No keys for: %1").arg(keyId));
 }
 
 void SenderKeyRecord::addSenderKeyState(int id, int iteration, const QByteArray &chainKey, const DjbECPublicKey &signatureKey)
 {
-    senderKeyStates.append(new SenderKeyState(id, iteration, chainKey, signatureKey));
+    senderKeyStates.prepend(new SenderKeyState(id, iteration, chainKey, signatureKey));
+
+    if (senderKeyStates.size() > SenderKeyRecord::MAX_STATES) {
+        senderKeyStates.removeLast();
+    }
 }
 
 void SenderKeyRecord::setSenderKeyState(int id, int iteration, const QByteArray &chainKey, const ECKeyPair &signatureKey)
@@ -54,4 +67,9 @@ QByteArray SenderKeyRecord::serialize() const
     QByteArray recordStructureBytes(recordStructureString.data(), recordStructureString.length());
 
     return recordStructureBytes;
+}
+
+bool SenderKeyRecord::isEmpty() const
+{
+    return senderKeyStates.isEmpty();
 }

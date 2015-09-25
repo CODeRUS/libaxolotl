@@ -69,7 +69,7 @@ bool Curve::verifySignature(const DjbECPublicKey &signingKey, const QByteArray &
         return Curve25519::verifySignature((const unsigned char*)signingKey.getPublicKey().constData(),
                                            (const unsigned char*)message.constData(),
                                            message.size(),
-                                           (const unsigned char*)signature.constData());
+                                           (const unsigned char*)signature.constData()) == 0;
     } else {
         throw InvalidKeyException(QString("Unknown type: %1").arg(signingKey.getType()));
     }

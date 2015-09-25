@@ -19,28 +19,27 @@ SessionBuilder::SessionBuilder()
 
 }
 
-SessionBuilder::SessionBuilder(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore, QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore, qulonglong recipientId, int deviceId)
+SessionBuilder::SessionBuilder(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore, QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore, const AxolotlAddress &remoteAddress)
 {
-    init(sessionStore, preKeyStore, signedPreKeyStore, identityKeyStore, recipientId, deviceId);
+    init(sessionStore, preKeyStore, signedPreKeyStore, identityKeyStore, remoteAddress);
 }
 
-SessionBuilder::SessionBuilder(QSharedPointer<AxolotlStore> store, qulonglong recipientId, int deviceId)
+SessionBuilder::SessionBuilder(QSharedPointer<AxolotlStore> store, const AxolotlAddress &remoteAddress)
 {
     init(qSharedPointerCast<SessionStore>(store),
          qSharedPointerCast<PreKeyStore>(store),
          qSharedPointerCast<SignedPreKeyStore>(store),
          qSharedPointerCast<IdentityKeyStore>(store),
-         recipientId, deviceId);
+         remoteAddress);
 }
 
-void SessionBuilder::init(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore, QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore, qulonglong recipientId, int deviceId)
+void SessionBuilder::init(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore, QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore, const AxolotlAddress &remoteAddress)
 {
     this->sessionStore      = sessionStore;
     this->preKeyStore       = preKeyStore;
     this->signedPreKeyStore = signedPreKeyStore;
     this->identityKeyStore  = identityKeyStore;
-    this->recipientId       = recipientId;
-    this->deviceId          = deviceId;
+    this->remoteAddress     = remoteAddress;
 }
 
 ulong SessionBuilder::process(SessionRecord *sessionRecord, QSharedPointer<PreKeyWhisperMessage> message)
@@ -50,17 +49,18 @@ ulong SessionBuilder::process(SessionRecord *sessionRecord, QSharedPointer<PreKe
 
     ulong unsignedPreKeyId;
 
-    if (!identityKeyStore->isTrustedIdentity(recipientId, theirIdentityKey)) {
-        throw UntrustedIdentityException(QString("Untrusted identity: %1").arg(recipientId));
+    if (!identityKeyStore->isTrustedIdentity(remoteAddress.getName(), theirIdentityKey)) {
+        throw UntrustedIdentityException(QString("Untrusted identity: %1").arg(remoteAddress.getName()));
     }
 
+    qDebug() << messageVersion;
     switch (messageVersion) {
         case 2:  unsignedPreKeyId = processV2(sessionRecord, message); break;
         case 3:  unsignedPreKeyId = processV3(sessionRecord, message); break;
         default: throw InvalidMessageException("Unknown version: " + messageVersion);
     }
 
-    identityKeyStore->saveIdentity(recipientId, theirIdentityKey);
+    identityKeyStore->saveIdentity(remoteAddress.getName(), theirIdentityKey);
     return unsignedPreKeyId;
 }
 
@@ -108,7 +108,7 @@ ulong SessionBuilder::processV2(SessionRecord *sessionRecord, QSharedPointer<Pre
     }
 
     if (!preKeyStore->containsPreKey(message->getPreKeyId()) &&
-        sessionStore->containsSession(recipientId, deviceId))
+        sessionStore->containsSession(remoteAddress))
     {
         return -1;
     }
@@ -141,8 +141,8 @@ ulong SessionBuilder::processV2(SessionRecord *sessionRecord, QSharedPointer<Pre
 
 void SessionBuilder::process(const PreKeyBundle &preKey)
 {
-    if (!identityKeyStore->isTrustedIdentity(recipientId, preKey.getIdentityKey())) {
-        throw UntrustedIdentityException(QString("Untrusted identity: %1").arg(recipientId));
+    if (!identityKeyStore->isTrustedIdentity(remoteAddress.getName(), preKey.getIdentityKey())) {
+        throw UntrustedIdentityException(QString("Untrusted identity: %1").arg(remoteAddress.getName()));
     }
 
     if (!preKey.getSignedPreKey().serialize().isEmpty() &&
@@ -161,7 +161,7 @@ void SessionBuilder::process(const PreKeyBundle &preKey)
     }
 
     bool           supportsV3           = !preKey.getSignedPreKey().serialize().isEmpty();
-    SessionRecord *sessionRecord        = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord *sessionRecord        = sessionStore->loadSession(remoteAddress);
     ECKeyPair      ourBaseKey           = Curve::generateKeyPair();
     DjbECPublicKey theirSignedPreKey    = supportsV3 ? preKey.getSignedPreKey() : preKey.getPreKey();
     DjbECPublicKey theirOneTimePreKey   = preKey.getPreKey();
@@ -189,14 +189,14 @@ void SessionBuilder::process(const PreKeyBundle &preKey)
     sessionRecord->getSessionState()->setRemoteRegistrationId(preKey.getRegistrationId());
     sessionRecord->getSessionState()->setAliceBaseKey(ourBaseKey.getPublicKey().serialize());
 
-    sessionStore->storeSession(recipientId, deviceId, sessionRecord);
-    identityKeyStore->saveIdentity(recipientId, preKey.getIdentityKey());
+    sessionStore->storeSession(remoteAddress, sessionRecord);
+    identityKeyStore->saveIdentity(remoteAddress.getName(), preKey.getIdentityKey());
 }
 
 KeyExchangeMessage SessionBuilder::process(QSharedPointer<KeyExchangeMessage> message)
 {
-    if (!identityKeyStore->isTrustedIdentity(recipientId, message->getIdentityKey())) {
-        throw UntrustedIdentityException(QString("Untrusted identity: %1").arg(recipientId));
+    if (!identityKeyStore->isTrustedIdentity(remoteAddress.getName(), message->getIdentityKey())) {
+        throw UntrustedIdentityException(QString("Untrusted identity: %1").arg(remoteAddress.getName()));
     }
 
     KeyExchangeMessage responseMessage;
@@ -215,10 +215,10 @@ KeyExchangeMessage SessionBuilder::process()
     ECKeyPair       ratchetKey       = Curve::generateKeyPair();
     IdentityKeyPair identityKey      = identityKeyStore->getIdentityKeyPair();
     QByteArray      baseKeySignature = Curve::calculateSignature(identityKey.getPrivateKey(), baseKey.getPublicKey().serialize());
-    SessionRecord  *sessionRecord    = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord  *sessionRecord    = sessionStore->loadSession(remoteAddress);
 
     sessionRecord->getSessionState()->setPendingKeyExchange(sequence, baseKey, ratchetKey, identityKey);
-    sessionStore->storeSession(recipientId, deviceId, sessionRecord);
+    sessionStore->storeSession(remoteAddress, sessionRecord);
 
     return KeyExchangeMessage(2, sequence, flags, baseKey.getPublicKey(), baseKeySignature,
                               ratchetKey.getPublicKey(), identityKey.getPublicKey());
@@ -227,7 +227,7 @@ KeyExchangeMessage SessionBuilder::process()
 KeyExchangeMessage SessionBuilder::processInitiate(QSharedPointer<KeyExchangeMessage> message)
 {
     int            flags         = KeyExchangeMessage::RESPONSE_FLAG;
-    SessionRecord *sessionRecord = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord *sessionRecord = sessionStore->loadSession(remoteAddress);
 
     if (message->getVersion() >= 3 &&
         !Curve::verifySignature(message->getIdentityKey().getPublicKey(),
@@ -260,8 +260,8 @@ KeyExchangeMessage SessionBuilder::processInitiate(QSharedPointer<KeyExchangeMes
                                          qMin(message->getMaxVersion(), CiphertextMessage::CURRENT_VERSION),
                                          parameters);
 
-    sessionStore->storeSession(recipientId, deviceId, sessionRecord);
-    identityKeyStore->saveIdentity(recipientId, message->getIdentityKey());
+    sessionStore->storeSession(remoteAddress, sessionRecord);
+    identityKeyStore->saveIdentity(remoteAddress.getName(), message->getIdentityKey());
 
     QByteArray baseKeySignature = Curve::calculateSignature(parameters.getOurIdentityKey().getPrivateKey(),
                                                             parameters.getOurBaseKey().getPublicKey().serialize());
@@ -275,7 +275,7 @@ KeyExchangeMessage SessionBuilder::processInitiate(QSharedPointer<KeyExchangeMes
 
 void SessionBuilder::processResponse(QSharedPointer<KeyExchangeMessage> message)
 {
-    SessionRecord *sessionRecord                  = sessionStore->loadSession(recipientId, deviceId);
+    SessionRecord *sessionRecord                  = sessionStore->loadSession(remoteAddress);
     SessionState  *sessionState                   = sessionRecord->getSessionState();
     bool           hasPendingKeyExchange          = sessionState->hasPendingKeyExchange();
     bool           isSimultaneousInitiateResponse = message->isResponseForSimultaneousInitiate();
@@ -308,6 +308,6 @@ void SessionBuilder::processResponse(QSharedPointer<KeyExchangeMessage> message)
         throw InvalidKeyException("Base key signature doesn't match!");
     }
 
-    sessionStore->storeSession(recipientId, deviceId, sessionRecord);
-    identityKeyStore->saveIdentity(recipientId, message->getIdentityKey());
+    sessionStore->storeSession(remoteAddress, sessionRecord);
+    identityKeyStore->saveIdentity(remoteAddress.getName(), message->getIdentityKey());
 }

@@ -194,12 +194,11 @@ void SessionState::addReceiverChain(const DjbECPublicKey &senderRatchetKey, cons
     chainKeyStructure.set_key(byteChain.constData(), byteChain.size());
     chainKeyStructure.set_index(chainKey.getIndex());
 
-    textsecure::SessionStructure::Chain chain;
-    chain.mutable_chainkey()->CopyFrom(chainKeyStructure);
     QByteArray byteRatchet = senderRatchetKey.serialize();
-    chain.set_senderratchetkey(byteRatchet.constData(), byteRatchet.size());
 
-    sessionStructure.add_receiverchains()->CopyFrom(chain);
+    textsecure::SessionStructure::Chain* chain = sessionStructure.add_receiverchains();
+    chain->mutable_chainkey()->CopyFrom(chainKeyStructure);
+    chain->set_senderratchetkey(byteRatchet.constData(), byteRatchet.size());
 
     if (sessionStructure.receiverchains_size() > 5) {
         delete sessionStructure.mutable_receiverchains(0);
@@ -320,6 +319,10 @@ void SessionState::setMessageKeys(const DjbECPublicKey &senderEphemeral, const M
     messageKeyStructure->set_index(messageKeys.getCounter());
     QByteArray byteIv = messageKeys.getIv();
     messageKeyStructure->set_iv(byteIv.constData(), byteIv.size());
+
+    if (chain->messagekeys_size() > SessionState::MAX_MESSAGE_KEYS) {
+        chain->mutable_messagekeys()->DeleteSubrange(0, 1);
+    }
 }
 
 void SessionState::setReceiverChainKey(const DjbECPublicKey &senderEphemeral, const ChainKey &chainKey)
