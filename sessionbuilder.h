@@ -11,6 +11,7 @@
 #include "state/axolotlstore.h"
 #include "protocol/prekeywhispermessage.h"
 #include "protocol/keyexchangemessage.h"
+#include "axolotladdress.h"
 
 class SessionBuilder
 {
@@ -20,8 +21,8 @@ public:
                    QSharedPointer<PreKeyStore> preKeyStore,
                    QSharedPointer<SignedPreKeyStore> signedPreKeyStore,
                    QSharedPointer<IdentityKeyStore> identityKeyStore,
-                   qulonglong recipientId, int deviceId);
-    SessionBuilder(QSharedPointer<AxolotlStore> store, qulonglong recipientId, int deviceId);
+                   const AxolotlAddress &remoteAddress);
+    SessionBuilder(QSharedPointer<AxolotlStore> store, const AxolotlAddress &remoteAddress);
 
     ulong process(SessionRecord *sessionRecord, QSharedPointer<PreKeyWhisperMessage> message);
     ulong processV3(SessionRecord *sessionRecord, QSharedPointer<PreKeyWhisperMessage> message);
@@ -35,7 +36,7 @@ private:
               QSharedPointer<PreKeyStore> preKeyStore,
               QSharedPointer<SignedPreKeyStore> signedPreKeyStore,
               QSharedPointer<IdentityKeyStore> identityKeyStore,
-              qulonglong recipientId, int deviceId);
+              const AxolotlAddress &remoteAddress);
     KeyExchangeMessage processInitiate(QSharedPointer<KeyExchangeMessage> message);
     void processResponse(QSharedPointer<KeyExchangeMessage> message);
 
@@ -44,8 +45,7 @@ private:
     QSharedPointer<PreKeyStore>       preKeyStore;
     QSharedPointer<SignedPreKeyStore> signedPreKeyStore;
     QSharedPointer<IdentityKeyStore>  identityKeyStore;
-    qulonglong   recipientId;
-    int    deviceId;
+    AxolotlAddress                    remoteAddress;
 };
 
 #endif // SESSIONBUILDER_H

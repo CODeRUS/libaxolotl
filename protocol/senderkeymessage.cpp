@@ -11,10 +11,9 @@
 
 SenderKeyMessage::SenderKeyMessage(const QByteArray &serialized)
 {
-    QList<QByteArray> messageParts = ByteUtil::split(serialized, 1, serialized.size() - 1 - SIGNATURE_LENGTH, SIGNATURE_LENGTH);
-    quint8     version             = messageParts[0][0];
-    QByteArray message             = messageParts[1];
-    //QByteArray signature           = messageParts[2];
+    quint8     version             = serialized[0];
+    QByteArray message             = serialized.mid(1, serialized.size() - 1 - SIGNATURE_LENGTH);
+    //QByteArray signature           = serialized.right(SIGNATURE_LENGTH);
 
     if (ByteUtil::highBitsToInt(version) < 3) {
         throw LegacyMessageException("Legacy message: " + ByteUtil::highBitsToInt(version));
@@ -66,9 +65,7 @@ SenderKeyMessage::SenderKeyMessage(ulong keyId, int iteration, const QByteArray 
 void SenderKeyMessage::verifySignature(const DjbECPublicKey &signatureKey)
 {
     try {
-      QList<QByteArray> parts = ByteUtil::split(serialized, serialized.size() - SIGNATURE_LENGTH, SIGNATURE_LENGTH);
-
-      if (!Curve::verifySignature(signatureKey, parts[0], parts[1])) {
+      if (!Curve::verifySignature(signatureKey, serialized.left(serialized.size() - SIGNATURE_LENGTH), serialized.right(SIGNATURE_LENGTH))) {
           throw InvalidMessageException("Invalid signature!");
       }
 

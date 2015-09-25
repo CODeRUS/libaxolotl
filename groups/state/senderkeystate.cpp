@@ -117,15 +117,14 @@ bool SenderKeyState::hasSenderMessageKey(uint32_t iteration) const
 
 void SenderKeyState::addSenderMessageKey(const SenderMessageKey &senderMessageKey)
 {
-    senderKeyStateStructure.add_sendermessagekeys()->set_iteration(senderMessageKey.getIteration());
-    senderKeyStateStructure.add_sendermessagekeys()->set_seed(senderMessageKey.getSeed().constData(),
-                                                              senderMessageKey.getSeed().size());
+    textsecure::SenderKeyStateStructure::SenderMessageKey* sendermessagekey = senderKeyStateStructure.add_sendermessagekeys();
+    sendermessagekey->set_iteration(senderMessageKey.getIteration());
+    sendermessagekey->set_seed(senderMessageKey.getSeed().constData(),
+                               senderMessageKey.getSeed().size());
 
-    /*textsecure::SenderKeyStateStructure::SenderMessageKey senderMessageKeyStructure;
-    senderMessageKeyStructure.set_iteration(senderMessageKey.getIteration());
-    senderMessageKeyStructure.set_seed(senderMessageKey.getSeed().constData());
-
-    senderKeyStateStructure.add_sendermessagekeys()->CopyFrom(senderMessageKeyStructure);*/
+    if (senderKeyStateStructure.sendermessagekeys_size() > SenderKeyState::MAX_MESSAGE_KEYS) {
+        senderKeyStateStructure.mutable_sendermessagekeys()->DeleteSubrange(0, 1);
+    }
 }
 
 SenderMessageKey SenderKeyState::removeSenderMessageKey(uint32_t iteration)

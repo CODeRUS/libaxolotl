@@ -8,6 +8,8 @@
 class SenderKeyState
 {
 public:
+    static const int MAX_MESSAGE_KEYS = 2000;
+
     SenderKeyState();
     SenderKeyState(int id, int iteration, const QByteArray &chainKey, const DjbECPublicKey &signatureKey);
     SenderKeyState(int id, int iteration, const QByteArray &chainKey, const ECKeyPair &signatureKey);

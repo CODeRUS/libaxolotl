@@ -8,6 +8,7 @@ class SenderKeyDistributionMessage : public CiphertextMessage
 {
 public:
     SenderKeyDistributionMessage(int id, int iteration, const QByteArray &chainKey, const DjbECPublicKey &signatureKey);
+    SenderKeyDistributionMessage(const QByteArray &serialized);
     virtual ~SenderKeyDistributionMessage() {}
 
     QByteArray serialize() const;

@@ -2,7 +2,7 @@
 #define SENDERKEYMESSAGE_H
 
 #include "ciphertextmessage.h"
-#include "../ecc/djbec.h"
+#include "ecc/djbec.h"
 
 class SenderKeyMessage : public CiphertextMessage
 {

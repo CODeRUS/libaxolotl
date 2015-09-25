@@ -6,14 +6,15 @@
 #include "state/sessionstore.h"
 #include "sessionbuilder.h"
 #include "ratchet/messagekeys.h"
+#include "axolotladdress.h"
 
 class SessionCipher
 {
 public:
     SessionCipher(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore,
                   QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore,
-                  qulonglong recipientId, int deviceId);
-    SessionCipher(QSharedPointer<AxolotlStore> store, qulonglong recipientId, int deviceId);
+                  const AxolotlAddress &remoteAddress);
+    SessionCipher(QSharedPointer<AxolotlStore> store, const AxolotlAddress &remoteAddress);
     QSharedPointer<CiphertextMessage> encrypt(const QByteArray &paddedMessage);
     QByteArray decrypt(QSharedPointer<PreKeyWhisperMessage> ciphertext);
     QByteArray decrypt(QSharedPointer<WhisperMessage> ciphertext);
@@ -25,7 +26,7 @@ public:
 private:
     void init(QSharedPointer<SessionStore> sessionStore, QSharedPointer<PreKeyStore> preKeyStore,
               QSharedPointer<SignedPreKeyStore> signedPreKeyStore, QSharedPointer<IdentityKeyStore> identityKeyStore,
-              qulonglong recipientId, int deviceId);
+              const AxolotlAddress &remoteAddress);
     ChainKey getOrCreateChainKey(SessionState *sessionState, const DjbECPublicKey &theirEphemeral);
     MessageKeys getOrCreateMessageKeys(SessionState *sessionState,
                                        const DjbECPublicKey &theirEphemeral,
@@ -34,10 +35,9 @@ private:
     QByteArray getPlaintext(int version, const MessageKeys &messageKeys, const QByteArray &cipherText);
 
     QSharedPointer<SessionStore>   sessionStore;
-    SessionBuilder sessionBuilder;
+    SessionBuilder                 sessionBuilder;
     QSharedPointer<PreKeyStore>    preKeyStore;
-    qulonglong           recipientId;
-    int            deviceId;
+    AxolotlAddress                 remoteAddress;
 };
 
 #endif // SESSIONCIPHER_H

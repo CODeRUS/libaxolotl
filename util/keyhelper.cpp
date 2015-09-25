@@ -9,8 +9,6 @@
 
 quint64 KeyHelper::getRandomFFFF()
 {
-    RAND_poll();
-
     unsigned char buff1[2];
     memset(buff1, 0, 2);
     RAND_bytes(buff1, 2);
@@ -21,8 +19,6 @@ quint64 KeyHelper::getRandomFFFF()
 
 quint64 KeyHelper::getRandom7FFFFFFF()
 {
-    RAND_poll();
-
     quint64 rand2 = 0;
     for (int i = 0; i < 0x80; i++) {
         unsigned char buff0[3];
@@ -38,8 +34,6 @@ quint64 KeyHelper::getRandom7FFFFFFF()
 
 quint64 KeyHelper::getRandomFFFFFFFF()
 {
-    RAND_poll();
-
     unsigned char buff1[4];
     memset(buff1, 0, 4);
     RAND_bytes(buff1, 4);
@@ -51,12 +45,9 @@ quint64 KeyHelper::getRandomFFFFFFFF()
 
 QByteArray KeyHelper::getRandomBytes(int bytes)
 {
-    RAND_poll();
-
-    unsigned char buff1[bytes];
-    memset(buff1, 0, bytes);
-    RAND_bytes(buff1, bytes);
-    return QByteArray::fromRawData((const char *)buff1, bytes);
+    QByteArray buff1(bytes, '\0');
+    RAND_bytes((unsigned char*)buff1.data(), bytes);
+    return buff1;
 }
 
 IdentityKeyPair KeyHelper::generateIdentityKeyPair()
@@ -96,8 +87,6 @@ ECKeyPair KeyHelper::generateSenderSigningKey()
 
 QByteArray KeyHelper::generateSenderKey()
 {
-    RAND_poll();
-
     unsigned char buff1[32];
     memset(buff1, 0, 32);
     RAND_bytes(buff1, 32);

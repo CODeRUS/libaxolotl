@@ -8,12 +8,11 @@ isEmpty(CURRENT_RPATH_DIR) {
     target.path = $$CURRENT_RPATH_DIR
     QMAKE_RPATHDIR += $$INSTALL_ROOT$$CURRENT_RPATH_DIR
 }
-VERSION = 1.0.0
+VERSION = 1.3.4
 INSTALLS += target
 
-CONFIG += dll link_pkgconfig
+CONFIG += plugin link_pkgconfig
 PKGCONFIG += openssl libssl libcrypto
-#CONFIG += staticlib
 DEFINES += LIBAXOLOTL_LIBRARY
 
 LIBS += -L../libcurve25519 -lcurve25519
@@ -75,7 +74,11 @@ HEADERS += \
     state/axolotlstore.h \
     state/identitykeystore.h \
     util/medium.h \
-    axolotl_global.h
+    axolotl_global.h \
+    groups/senderkeyname.h \
+    groups/groupsessionbuilder.h \
+    groups/groupcipher.h \
+    axolotladdress.h
 
 SOURCES += \
     ecc/curve.cpp \
@@ -112,4 +115,8 @@ SOURCES += \
     protocol/senderkeymessage.cpp \
     protocol/senderkeydistributionmessage.cpp \
     sessioncipher.cpp \
-    sessionbuilder.cpp
+    sessionbuilder.cpp \
+    groups/senderkeyname.cpp \
+    groups/groupsessionbuilder.cpp \
+    groups/groupcipher.cpp \
+    axolotladdress.cpp

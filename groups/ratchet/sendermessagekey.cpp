@@ -1,6 +1,5 @@
 #include "sendermessagekey.h"
-#include "../../kdf/hkdf.h"
-#include "../../util/byteutil.h"
+#include "kdf/hkdf.h"
 
 SenderMessageKey::SenderMessageKey()
 {
@@ -10,12 +9,11 @@ SenderMessageKey::SenderMessageKey()
 SenderMessageKey::SenderMessageKey(int iteration, const QByteArray &seed)
 {
     QByteArray derivative   = HKDF(3).deriveSecrets(seed, QByteArray("WhisperGroup"), 48);
-    QList<QByteArray> parts = ByteUtil::split(derivative, 16, 32);
 
     this->iteration = iteration;
     this->seed      = seed;
-    this->iv        = parts[0];
-    this->cipherKey = parts[1];
+    this->iv        = derivative.left(16);
+    this->cipherKey = derivative.mid(16, 32);
 }
 
 int SenderMessageKey::getIteration() const
